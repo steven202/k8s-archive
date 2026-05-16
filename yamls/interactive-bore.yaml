@@ -1,45 +1,70 @@
+# Alternative Jupyter debug pod using bore.pub (no Cloudflare needed).
+# NOTE: bore.pub is DNS-blocked on W&M cluster (sinkholed to ::).
+# This YAML works on clusters without such restrictions.
+# When bore connects, check pod logs for the bore.pub URL (e.g. bore.pub:12345).
+
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-note
+  name: test-bore
   namespace: wmd3i
   labels:
-    app: note
+    app: bore
 spec:
   restartPolicy: Never
   securityContext:
     runAsUser: 268412
     runAsGroup: 1133
   containers:
-    - name: note
+    - name: dev
       image: cwang33/k8s-dev:latest
       env:
         - name: HOME
           value: /sciclone/home/cwang33
+        - name: SHELL
+          value: /bin/bash
       command:
         - /bin/bash
         - -c
         - |
           eval "$(conda shell.bash hook)"
           conda activate base
-          echo "Starting Jupyter on :8888..."
-          jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
-            --NotebookApp.token='' --NotebookApp.password='' \
+          export PATH="$HOME/.local/bin:$PATH"
+
+          echo "=== Downloading bore ==="
+          mkdir -p /tmp/bore && cd /tmp/bore
+          python3 -c "
+          import urllib.request, tarfile, io
+          url = 'https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz'
+          print(f'Downloading {url}...')
+          data = urllib.request.urlopen(url).read()
+          tarfile.open(fileobj=io.BytesIO(data)).extractall('.')
+          " && chmod +x bore
+
+          echo "=== Starting Jupyter on :8888 ==="
+          jupyter lab \
+            --ip=0.0.0.0 --port=8888 --no-browser \
+            --ServerApp.token='dela123' \
+            --ServerApp.allow_origin='*' \
             --notebook-dir=/sciclone/home/cwang33 &
+
           sleep 5
-          echo "Starting cloudflared tunnel..."
-          exec cloudflared tunnel --protocol http2 --config "$HOME/.cloudflared/config-k8s-note.yml" run
+
+          echo "============================================"
+          echo ">>> Tunnel URL will appear below <<<"
+          echo "============================================"
+          exec /tmp/bore/bore local 8888 --to bore.pub
       ports:
         - containerPort: 8888
           protocol: TCP
       resources:
         requests:
-          memory: "4Gi"
-          cpu: "2"
+          memory: "6Gi"
+          cpu: "3"
           nvidia.com/gpu: "1"
         limits:
-          memory: "8Gi"
-          cpu: "4"
+          memory: "12Gi"
+          cpu: "6"
           nvidia.com/gpu: "1"
       volumeMounts:
         - name: nfs-home
