@@ -12,8 +12,7 @@ spec:
     runAsGroup: 1133
   containers:
     - name: note
-      # image: cwang33/k8s-dev:latest  # uncomment after docker build
-      image: pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel
+      image: cwang33/k8s-dev:latest
       env:
         - name: HOME
           value: /sciclone/home/cwang33
@@ -23,31 +22,13 @@ spec:
         - |
           eval "$(conda shell.bash hook)"
           conda activate base
-          export PATH="$HOME/anaconda3/bin:$HOME/.local/bin:$HOME:$PATH"
-
-          # --- Jupyter (pip install if missing) ---
-          if ! command -v jupyter &>/dev/null; then
-            echo "Installing jupyter..."
-            pip install --no-cache-dir jupyter notebook
-          fi
-
-          # --- cloudflared (download if missing) ---
-          CF_BIN="$HOME/cloudflared"
-          if [ ! -f "$CF_BIN" ]; then
-            echo "Downloading cloudflared..."
-            curl -fsSL -o "$CF_BIN" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
-            chmod +x "$CF_BIN"
-          fi
-
           echo "Starting Jupyter on :8888..."
-          jupyter notebook \
-            --ip=0.0.0.0 --port=8888 --no-browser \
-            --allow-root \
+          jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
             --NotebookApp.token='' --NotebookApp.password='' \
             --notebook-dir=/sciclone/home/cwang33 &
           sleep 5
-          echo "Starting cloudflared tunnel -> k8s-note.disciple.qzz.io"
-          exec "$CF_BIN" tunnel --protocol http2 --config "$HOME/.cloudflared/config-unified.yml" run
+          echo "Starting cloudflared tunnel..."
+          exec cloudflared tunnel --protocol http2 --config "$HOME/.cloudflared/config-k8s-note.yml" run
       ports:
         - containerPort: 8888
           protocol: TCP
