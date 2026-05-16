@@ -33,8 +33,14 @@ spec:
               cpu: "4"
               nvidia.com/gpu: "1"
           volumeMounts:
-            - name: nfs
+            - name: nfs-home
               mountPath: /sciclone/home/cwang33
+            - name: nfs-data10
+              mountPath: /sciclone/data10
+            - name: nfs-scr10
+              mountPath: /sciclone/scr10
+            - name: nfs-scr20
+              mountPath: /sciclone/scr20
       nodeSelector:
         kubernetes.io/hostname: d3i00.sciclone.wm.edu
       tolerations:
@@ -43,7 +49,19 @@ spec:
           value: "d3i"
           effect: "NoSchedule"
       volumes:
-        - name: nfs
+        - name: nfs-home
           nfs:
             server: 128.239.56.166
             path: /sciclone/home/cwang33
+        - name: nfs-data10
+          nfs:
+            server: 128.239.56.30
+            path: /sciclone/data10
+        - name: nfs-scr10
+          nfs:
+            server: 128.239.56.168
+            path: /sciclone/scr10
+        - name: nfs-scr20
+          nfs:
+            server: 128.239.56.181
+            path: /sciclone/scr20
