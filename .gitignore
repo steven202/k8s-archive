@@ -1,0 +1,6 @@
+.DS_Store
+.tmux_logs/
+__pycache__/
+*.pyc
+.Trash-*
+*/.Trash-*

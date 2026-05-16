@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-note
+  namespace: wmd3i
+  labels:
+    app: note
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsUser: 268412
+    runAsGroup: 1133
+  containers:
+    - name: note
+      # image: cwang33/k8s-dev:latest  # uncomment after docker build
+      image: pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel
+      env:
+        - name: HOME
+          value: /sciclone/home/cwang33
+      command:
+        - /bin/bash
+        - -c
+        - |
+          eval "$(conda shell.bash hook)"
+          conda activate base
+          export PATH="$HOME/anaconda3/bin:$HOME/.local/bin:$HOME:$PATH"
+
+          # --- Jupyter (pip install if missing) ---
+          if ! command -v jupyter &>/dev/null; then
+            echo "Installing jupyter..."
+            pip install --no-cache-dir jupyter notebook
+          fi
+
+          # --- cloudflared (download if missing) ---
+          CF_BIN="$HOME/cloudflared"
+          if [ ! -f "$CF_BIN" ]; then
+            echo "Downloading cloudflared..."
+            curl -fsSL -o "$CF_BIN" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+            chmod +x "$CF_BIN"
+          fi
+
+          echo "Starting Jupyter on :8888..."
+          jupyter notebook \
+            --ip=0.0.0.0 --port=8888 --no-browser \
+            --allow-root \
+            --NotebookApp.token='' --NotebookApp.password='' \
+            --notebook-dir=/sciclone/home/cwang33 &
+          sleep 5
+          echo "Starting cloudflared tunnel -> k8s-note.disciple.qzz.io"
+          exec "$CF_BIN" tunnel --protocol http2 --config "$HOME/.cloudflared/config-unified.yml" run
+      ports:
+        - containerPort: 8888
+          protocol: TCP
+      resources:
+        requests:
+          memory: "4Gi"
+          cpu: "2"
+          nvidia.com/gpu: "1"
+        limits:
+          memory: "8Gi"
+          cpu: "4"
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: nfs
+          mountPath: /sciclone/home/cwang33
+  nodeSelector:
+    kubernetes.io/hostname: d3i00.sciclone.wm.edu
+  tolerations:
+    - key: "node"
+      operator: "Equal"
+      value: "d3i"
+      effect: "NoSchedule"
+  volumes:
+    - name: nfs
+      nfs:
+        server: 128.239.56.166
+        path: /sciclone/home/cwang33

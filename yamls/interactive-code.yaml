@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-code
+  namespace: wmd3i
+  labels:
+    app: code
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsUser: 268412
+    runAsGroup: 1133
+  containers:
+    - name: code
+      # image: cwang33/k8s-dev:latest  # uncomment after docker build
+      image: pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel
+      env:
+        - name: HOME
+          value: /sciclone/home/cwang33
+      command:
+        - /bin/bash
+        - -c
+        - |
+          eval "$(conda shell.bash hook)"
+          conda activate base
+          export PATH="$HOME/anaconda3/bin:$HOME:$PATH"
+
+          # --- code-server (download if missing) ---
+          CS_VER="4.99.3" CS_DIR="$HOME/code-server"
+          CS_BIN="$CS_DIR/code-server-${CS_VER}-linux-amd64/bin/code-server"
+          if [ ! -f "$CS_BIN" ]; then
+            echo "Downloading code-server..."
+            curl -fsSL "https://github.com/coder/code-server/releases/download/v${CS_VER}/code-server-${CS_VER}-linux-amd64.tar.gz" | tar -xz -C "$CS_DIR"
+          fi
+
+          # --- cloudflared (download if missing) ---
+          CF_BIN="$HOME/cloudflared"
+          if [ ! -f "$CF_BIN" ]; then
+            echo "Downloading cloudflared..."
+            curl -fsSL -o "$CF_BIN" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+            chmod +x "$CF_BIN"
+          fi
+
+          echo "Starting code-server on :8080..."
+          "$CS_BIN" --bind-addr 0.0.0.0:8080 --auth none /sciclone/home/cwang33 &
+          sleep 3
+          echo "Starting cloudflared tunnel -> k8s-code.disciple.qzz.io"
+          exec "$CF_BIN" tunnel --protocol http2 --config "$HOME/.cloudflared/config-unified.yml" run
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        requests:
+          memory: "4Gi"
+          cpu: "2"
+          nvidia.com/gpu: "1"
+        limits:
+          memory: "8Gi"
+          cpu: "4"
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: nfs
+          mountPath: /sciclone/home/cwang33
+  nodeSelector:
+    kubernetes.io/hostname: d3i00.sciclone.wm.edu
+  tolerations:
+    - key: "node"
+      operator: "Equal"
+      value: "d3i"
+      effect: "NoSchedule"
+  volumes:
+    - name: nfs
+      nfs:
+        server: 128.239.56.166
+        path: /sciclone/home/cwang33

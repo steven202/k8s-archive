@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{JOB_NAME}} # REPLACE WITH YOUR OWN JOB NAME
+spec:
+  template:
+    metadata:
+      labels:
+        app: test-jupyter
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: {{USER_ID}} # Can be found by running `id` in the terminal
+        runAsGroup: {{GROUP_ID}} # Can be found by running `id` in the terminal
+      containers:
+        - name: simplenotebook
+          image: pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel # REPLACE WITH YOUR OWN IMAGE
+          command: 
+            - /bin/bash
+            - -c
+            - |
+              eval "$(conda shell.bash hook)"
+              conda activate base # REPLACE WITH YOUR OWN CONDA ENV
+              python run.py # REPLACE WITH YOUR OWN PYTHON SCRIPT
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          volumeMounts:
+            - name: nsf
+              mountPath: /sciclone/home/{{USER}}
+      nodeSelector:
+        # nvidia.com/gpu.product: "NVIDIA-A40"
+        # nvidia.com/gpu.product: "Quadro-RTX-6000"
+        nvidia.com/gpu.product: "NVIDIA-L4"
+      volumes:
+        - name: nsf
+          nfs:
+            server: 128.239.56.166
+            path: /sciclone/home/{{USER}}
+

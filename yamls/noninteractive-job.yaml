@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-batch
+  namespace: wmd3i
+spec:
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 268412
+        runAsGroup: 1133
+      containers:
+        - name: test
+          image: cwang33/k8s-dev:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "=== Hostname: $(hostname) ==="
+              nvidia-smi -L
+              python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}')"
+              echo "=== Job complete ==="
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "2"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "4Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: nfs
+              mountPath: /sciclone/home/cwang33
+      nodeSelector:
+        kubernetes.io/hostname: d3i00.sciclone.wm.edu
+      tolerations:
+        - key: "node"
+          operator: "Equal"
+          value: "d3i"
+          effect: "NoSchedule"
+      volumes:
+        - name: nfs
+          nfs:
+            server: 128.239.56.166
+            path: /sciclone/home/cwang33

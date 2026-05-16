@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-bash
+  namespace: wmd3i
+  labels:
+    app: bash
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsUser: 268412
+    runAsGroup: 1133
+  containers:
+    - name: dev
+      image: cwang33/k8s-dev:latest
+      command:
+        - /bin/bash
+        - -c
+        - |
+          eval "$(conda shell.bash hook)"
+          conda activate base
+          echo "Ready. GPU: $(nvidia-smi -L 2>/dev/null | head -1)"
+          echo "Use: kubectl exec -it test-bash -n wmd3i -- /bin/bash"
+          sleep 7200
+      resources:
+        requests:
+          memory: "4Gi"
+          cpu: "2"
+          nvidia.com/gpu: "1"
+        limits:
+          memory: "8Gi"
+          cpu: "4"
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: nfs
+          mountPath: /sciclone/home/cwang33
+  nodeSelector:
+    kubernetes.io/hostname: d3i00.sciclone.wm.edu
+  tolerations:
+    - key: "node"
+      operator: "Equal"
+      value: "d3i"
+      effect: "NoSchedule"
+  volumes:
+    - name: nfs
+      nfs:
+        server: 128.239.56.166
+        path: /sciclone/home/cwang33
