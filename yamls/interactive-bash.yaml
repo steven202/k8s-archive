@@ -40,6 +40,8 @@ spec:
           mountPath: /sciclone/scr10
         - name: nfs-scr20
           mountPath: /sciclone/scr20
+        - name: nfs-proj-ds
+          mountPath: /sciclone/proj-ds
   nodeSelector:
     kubernetes.io/hostname: d3i00.sciclone.wm.edu
   tolerations:
@@ -64,3 +66,7 @@ spec:
       nfs:
         server: 128.239.56.181
         path: /sciclone/scr20
+    - name: nfs-proj-ds
+      nfs:
+        server: 128.239.59.144
+        path: /sciclone/proj-ds
